@@ -1,0 +1,32 @@
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: iris-train-pipeline
+experiment_name: iris-pipeline
+settings:
+  default_compute: azureml:cpu-cluster
+outputs:
+  model:
+    type: mlflow_model
+  metrics:
+    type: uri_folder
+jobs:
+  prep:
+    type: command
+    code: ./src
+    command: python prep.py --out ${{outputs.data}}
+    environment: azureml://registries/azureml/environments/sklearn-1.5/labels/latest
+    outputs:
+      data:
+        type: uri_folder
+  train:
+    type: command
+    code: ./src
+    command: >-
+      python train_eval.py --data ${{inputs.data}}
+      --model_out ${{outputs.model}} --metrics_out ${{outputs.metrics}}
+    environment: azureml://registries/azureml/environments/sklearn-1.5/labels/latest
+    inputs:
+      data: ${{parent.jobs.prep.outputs.data}}
+    outputs:
+      model: ${{parent.outputs.model}}
+      metrics: ${{parent.outputs.metrics}}
