@@ -1,0 +1,39 @@
+name: azureml-train-and-gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Minimum accuracy to register the model"
+        default: "0.85"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "pipeline.yml"
+
+jobs:
+  train-and-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install tools
+        run: |
+          pip install -q mlflow azureml-mlflow
+          az extension add -n ml -y
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set defaults
+        run: az configure --defaults group=rg-mlops-demo workspace=mlw-iris-demo
+
+      - name: Submit pipeline and apply accuracy gate
+        run: ./gate.sh "${{ github.event.inputs.threshold || '0.85' }}"
